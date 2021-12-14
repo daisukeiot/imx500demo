@@ -1,0 +1,90 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "EventHubNameSpace": {
+        "type": "String",
+        "metadata": {
+          "description": "Unique ID.  E.g. your name.  Must be Alphanumeric (a~z, 0~9), and 5~14 characters"
+        }
+      },
+      "EventHubName": {
+        "type": "String",
+        "defaultValue": "devicetelemetryhub",
+        "metadata": {
+          "description": "Unique ID.  E.g. your name.  Must be Alphanumeric (a~z, 0~9), and 5~14 characters"
+        }
+      },
+      "EventHubConsumerGroupName": {
+        "type": "String",
+        "defaultValue": "ConsumerGroupCustomer1",
+        "metadata": {
+          "description": "Unique ID.  E.g. your name.  Must be Alphanumeric (a~z, 0~9), and 5~14 characters"
+        }
+      }
+    },
+    "variables": {
+      "location": "[resourceGroup().location]",
+      "eventhubs": {
+        "apiVersion": "2021-01-01-preview",
+        "ruleListen": "[concat(parameters('EventHubConsumerGroupName'), '-Listen')]",
+        "partitionCount": 1
+      }
+    },
+    "resources": [
+      {
+        "type": "Microsoft.EventHub/namespaces",
+        "apiVersion": "[variables('eventhubs').apiVersion]",
+        "name": "[parameters('EventHubNameSpace')]",
+        "location": "[variables('location')]",
+        "dependsOn": [
+        ],
+        "properties": {},
+        "resources": [
+          {
+            "type": "eventhubs",
+            "apiVersion": "[variables('eventhubs').apiVersion]",
+            "name": "[parameters('EventHubName')]",
+            "location": "[variables('location')]",
+            "dependsOn": [
+              "[resourceId('Microsoft.EventHub/namespaces', parameters('EventHubNameSpace'))]"
+            ],
+            "properties": {
+              "messageRetentionInDays": 1,
+              "partitionCount": "[variables('eventhubs').partitionCount]"
+            },
+            "resources": [
+              {
+                "type": "authorizationRules",
+                "apiVersion": "[variables('eventhubs').apiVersion]",
+                "name": "[variables('eventhubs').ruleListen]",
+                "dependsOn": [
+                  "[parameters('EventHubName')]"
+                ],
+                "properties": {
+                  "rights": [
+                    "Listen"
+                  ]
+                }
+              },
+              {
+                "type": "consumergroups",
+                "apiVersion": "[variables('eventhubs').apiVersion]",
+                "name": "[parameters('EventHubConsumerGroupName')]",
+                "dependsOn": [
+                  "[parameters('EventHubName')]"
+                ],
+                "properties": {}
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "EventHubConnection": {
+        "type": "String",
+        "value": "[listKeys(resourceId('Microsoft.EventHub/namespaces/eventhubs/authorizationRules', parameters('EventHubNameSpace'), parameters('EventHubName'), variables('eventHubs').ruleListen),variables('eventhubs').apiVersion).primaryConnectionString]"
+      }
+    }
+  }
